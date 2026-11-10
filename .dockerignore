@@ -1,0 +1,17 @@
+vendor/
+node_modules/
+public/build/
+storage/
+bootstrap/cache/*.php
+.env
+.git/
+.gitignore
+Dockerfile
+docker/
+render.yaml
+.dockerignore
+*.md
+b.txt
+c.txt
+_fix_layout_logos.php
+_crop_logo.php

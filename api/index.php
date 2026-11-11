@@ -40,6 +40,9 @@ putenv("VIEW_COMPILED_PATH=/tmp/storage/framework/views");
 // Load composer autoloader setelah setup path agar class loading jalan
 require __DIR__ . '/../vendor/autoload.php';
 
+// TEST FRESHNESS DIE - REMOVE BEFORE FINAL
+// die('BUILD_OK_' . time());
+
 // Jalankan Laravel
 try {
     $app = require_once __DIR__ . '/../bootstrap/app.php';

@@ -4,6 +4,15 @@ use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [ApiController::class, 'login']);
+Route::get('/debug/csrf', function() {
+    $ref = new ReflectionClass(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
+    $neverVerify = $ref->getStaticPropertyValue('neverVerify');
+    return response()->json([
+        'csrf_except' => $neverVerify,
+        'env_app_env' => env('APP_ENV'),
+        'env_app_key_set' => !empty(env('APP_KEY')),
+    ]);
+});
 Route::get('/test', function() {
     return response()->json(['message' => 'API is working']);
 });

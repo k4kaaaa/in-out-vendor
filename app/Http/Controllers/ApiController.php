@@ -2,27 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Transaction;
 use App\Models\Vendor;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class ApiController extends Controller
 {
-    public function debugMiddleware(Request $request)
-    {
-        $route = $request->route();
-        return response()->json([
-            'uri' => $route ? $route->uri() : null,
-            'methods' => $route ? $route->methods() : null,
-            'middleware' => $route ? $route->middleware() : null,
-            'action' => $route ? $route->action : null,
-        ]);
-    }
-
     public function login(Request $request)
     {
         $credentials = $request->validate([

@@ -9,6 +9,13 @@ try {
     }
     chmod($tmpCacheDir, 0777);
     
+    // Hapus cache lama agar setiap cold start mendapatkan konfigurasi terbaru
+    foreach (glob($tmpCacheDir . '/*') as $file) {
+        if (is_file($file) && pathinfo($file, PATHINFO_EXTENSION) === 'php') {
+            @unlink($file);
+        }
+    }
+    
     // Atur path cache melalui env vars (overwrites defaults ke /var/task/user/bootstrap/cache)
     putenv('APP_PACKAGES_CACHE=' . $tmpCacheDir . '/packages.php');
     putenv('APP_SERVICES_CACHE=' . $tmpCacheDir . '/services.php');

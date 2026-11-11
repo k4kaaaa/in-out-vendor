@@ -11,6 +11,7 @@ Route::get('/debug/path', function () {
         'isApiLogin' => request()->is('api/*'),
     ]);
 });
+Route::get('/debug/simple', fn() => response()->json(['ok' => true]));
 Route::get('/products', [ApiController::class, 'products']);
 Route::get('/vendors', [ApiController::class, 'vendors']);
 Route::get('/transactions', [ApiController::class, 'transactions']);

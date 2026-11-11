@@ -13,7 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->preventRequestForgery(except: ['api/*']);
+        // Hapus middleware CSRF karena ini murni backend API untuk aplikasi Android.
+        // Aplikasi Android tidak mengirim token CSRF yang diharapkan Laravel.
+        $middleware->remove(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
         $middleware->alias([
             'role' => \App\Http\Middleware\Role::class,
         ]);

@@ -24,7 +24,7 @@ try {
     // Jika gagal membuat cache dir, lanjutkan tanpa cache
 }
 
-// Pastikan direktori storage/framework/views, cache, sessions ada dan dapat ditulis
+// Pastikan direktori storage/framework views, cache, sessions ada dan dapat ditulis
 $storagePath = '/tmp/storage/framework';
 $folders = ['views', 'cache', 'sessions'];
 foreach ($folders as $folder) {
@@ -76,4 +76,4 @@ try {
         'line' => $e->getLine(),
         'trace' => explode("\n", $e->getTraceAsString())
     ], JSON_PRETTY_PRINT);
-}// deploy-trigger 
+}

@@ -41,7 +41,7 @@ putenv("VIEW_COMPILED_PATH=/tmp/storage/framework/views");
 require __DIR__ . '/../vendor/autoload.php';
 
 // TEST FRESHNESS DIE - REMOVE BEFORE FINAL
-// die('BUILD_OK_' . time());
+die('BUILD_OK_' . time());
 
 // Jalankan Laravel
 try {

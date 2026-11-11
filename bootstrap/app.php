@@ -16,7 +16,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->preventRequestForgery(except: ['api/*']);
         $middleware->alias([
             'role' => \App\Http\Middleware\Role::class,
-            'skip.csrf.api' => \App\Http\Middleware\SkipCsrfForApi::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

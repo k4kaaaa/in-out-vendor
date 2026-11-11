@@ -1,5 +1,11 @@
 <?php
 
+// TEMP DEBUG REQUEST PATH (remove after)
+if (isset($_SERVER['REQUEST_URI'])) {
+    header('Content-Type: text/plain');
+    die('REQ=' . $_SERVER['REQUEST_URI'] . ' | PATH=' . ($_SERVER['PATH_INFO'] ?? '') . ' | SCRIPT=' . ($_SERVER['SCRIPT_NAME'] ?? '') . ' | QUERY=' . ($_SERVER['QUERY_STRING'] ?? ''));
+}
+
 // Vercel serverless hanya punya izin tulis di /tmp
 // Kita pindahkan folder cache Laravel ke /tmp agar PackageManifest/PackageManifest dapat menulis file.
 try {

@@ -12,6 +12,17 @@ use Illuminate\Support\Facades\Hash;
 
 class ApiController extends Controller
 {
+    public function debugMiddleware(Request $request)
+    {
+        $route = $request->route();
+        return response()->json([
+            'uri' => $route ? $route->uri() : null,
+            'methods' => $route ? $route->methods() : null,
+            'middleware' => $route ? $route->middleware() : null,
+            'action' => $route ? $route->action : null,
+        ]);
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate([

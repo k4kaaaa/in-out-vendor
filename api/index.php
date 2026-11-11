@@ -33,6 +33,9 @@ putenv("VIEW_COMPILED_PATH=/tmp/storage/framework/views");
 // Load composer autoloader setelah setup path agar class loading jalan
 require __DIR__ . '/../vendor/autoload.php';
 
+// Pastikan CSRF di-except untuk api/*
+\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::except(['api/*']);
+
 // Jalankan Laravel
 try {
     $app = require_once __DIR__ . '/../bootstrap/app.php';

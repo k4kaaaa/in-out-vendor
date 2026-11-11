@@ -6,6 +6,11 @@ if (isset($_SERVER['REQUEST_URI'])) {
     die('REQ=' . $_SERVER['REQUEST_URI'] . ' | PATH=' . ($_SERVER['PATH_INFO'] ?? '') . ' | SCRIPT=' . ($_SERVER['SCRIPT_NAME'] ?? '') . ' | QUERY=' . ($_SERVER['QUERY_STRING'] ?? ''));
 }
 
+// Pastikan PATH_INFO mengandung /api agar Laravel routing benar
+if (isset($_SERVER['PATH_INFO'])) {
+    $_SERVER['PATH_INFO'] = '/api' . $_SERVER['PATH_INFO'];
+}
+
 // Vercel serverless hanya punya izin tulis di /tmp
 // Kita pindahkan folder cache Laravel ke /tmp agar PackageManifest/PackageManifest dapat menulis file.
 try {

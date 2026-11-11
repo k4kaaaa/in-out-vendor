@@ -69,4 +69,4 @@ try {
         'line' => $e->getLine(),
         'trace' => explode("\n", $e->getTraceAsString())
     ], JSON_PRETTY_PRINT);
-}
+}// deploy-trigger 

@@ -1,8 +1,9 @@
 <?php
 
-// Pastikan PATH_INFO mengandung /api agar Laravel routing benar
-if (isset($_SERVER['PATH_INFO'])) {
-    $_SERVER['PATH_INFO'] = '/api' . $_SERVER['PATH_INFO'];
+// Pastikan PATH_INFO berisi path lengkap (termasuk /api) agar Laravel routing benar
+if (isset($_SERVER['REQUEST_URI'])) {
+    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $_SERVER['PATH_INFO'] = $path;
 }
 
 // Vercel serverless hanya punya izin tulis di /tmp

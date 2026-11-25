@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Transaction;
-use App\Models\Vendor;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ApiController extends Controller
@@ -17,19 +17,22 @@ class ApiController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
+        if (!Auth::attempt($credentials)) {
             return response()->json([
-                'success' => true,
-                'message' => 'Login Berhasil',
-                'user' => $user
-            ]);
+                'success' => false,
+                'message' => 'Email atau password salah'
+            ], 401);
         }
 
+        $user = Auth::user();
+        $token = $user->createToken('app-token')->plainTextToken;
+
         return response()->json([
-            'success' => false,
-            'message' => 'Email atau password salah'
-        ], 401);
+            'success' => true,
+            'message' => 'Login Berhasil',
+            'token' => $token,
+            'user' => $user
+        ]);
     }
 
     public function products()
@@ -44,7 +47,9 @@ class ApiController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => Vendor::all()
+            'data' => User::whereHas('role', function ($query) {
+                return $query->where('role', 'vendor');
+            })->get()
         ]);
     }
 
@@ -60,7 +65,7 @@ class ApiController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'vendor_id' => 'nullable|exists:vendors,id',
+            'vendor_id' => 'nullable|exists:users,id',
             'type' => 'required|in:in,out',
             'qty' => 'required|numeric|min:1',
             'note' => 'nullable|string',

@@ -1,11 +1,5 @@
 <?php
 
-// TEMP DEBUG REQUEST PATH (remove after)
-if (isset($_SERVER['REQUEST_URI'])) {
-    header('Content-Type: text/plain');
-    die('REQ=' . $_SERVER['REQUEST_URI'] . ' | PATH=' . ($_SERVER['PATH_INFO'] ?? '') . ' | SCRIPT=' . ($_SERVER['SCRIPT_NAME'] ?? '') . ' | QUERY=' . ($_SERVER['QUERY_STRING'] ?? ''));
-}
-
 // Pastikan PATH_INFO mengandung /api agar Laravel routing benar
 if (isset($_SERVER['PATH_INFO'])) {
     $_SERVER['PATH_INFO'] = '/api' . $_SERVER['PATH_INFO'];

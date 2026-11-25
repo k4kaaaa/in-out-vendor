@@ -1,9 +1,10 @@
 <?php
 
-// Pastikan PATH_INFO berisi path lengkap (termasuk /api) agar Laravel routing benar
+// Hapus awalan /api dari PATH_INFO agar sesuai dengan routes/api.php
+// (contoh: /api/auth/login → /auth/login)
 if (isset($_SERVER['REQUEST_URI'])) {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $_SERVER['PATH_INFO'] = $path;
+    $_SERVER['PATH_INFO'] = preg_replace('#^/api#', '', $path) ?: '/';
 }
 
 // Vercel serverless hanya punya izin tulis di /tmp

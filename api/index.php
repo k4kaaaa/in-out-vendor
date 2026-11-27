@@ -74,7 +74,13 @@ try {
         }
     );
 
-    $app->handleRequest(Illuminate\Http\Request::capture());
+    $request = Illuminate\Http\Request::capture();
+    // DEBUG: tampilkan path dan daftar route yang terdaftar
+    if ($request->query('debug') === '1') {
+        $routes = collect(app('router')->getRoutes())->map(fn($r) => $r->uri() . ' [' . implode('|', $r->methods()) . ']');
+        die('PATH_INFO: ' . $_SERVER['PATH_INFO'] . "\nREQUEST_URI: " . $_SERVER['REQUEST_URI'] . "\n\nROUTES:\n" . $routes->implode("\n"));
+    }
+    $app->handleRequest($request);
 } catch (\Throwable $e) {
     header('Content-Type: application/json');
     http_response_code(500);

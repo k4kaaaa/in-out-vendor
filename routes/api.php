@@ -12,7 +12,6 @@ Route::get('/seed-user', function() {
             'name' => 'API Admin',
             'email' => 'admin@inoutvendor.local',
             'password' => \Illuminate\Support\Facades\Hash::make('password123'),
-            'role' => 'admin',
         ]);
         return response()->json(['status' => 'created', 'user' => $user->email]);
     }

@@ -20,10 +20,10 @@
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 border-b border-gray-100">
                     <tr>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 w-20">Foto</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">Foto</th>
                         <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">Nama Produk</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">Kategori</th>
-                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">SKU</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 hidden lg:table-cell">Kategori</th>
+                        <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 hidden lg:table-cell">SKU</th>
                         <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 text-center">Stok</th>
                         <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 text-center">Min</th>
                         <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500 text-center">Status</th>
@@ -59,13 +59,13 @@
                                 </a>
                             </td>
                             
-                            <td class="px-6 py-4">
+                            <td class="px-6 py-4 hidden lg:table-cell">
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">
                                     {{ $product->category ?? '-' }}
                                 </span>
                             </td>
                             
-                            <td class="px-6 py-4 text-gray-600">{{ $product->sku ?? '-' }}</td>
+                            <td class="px-6 py-4 text-gray-600 hidden lg:table-cell">{{ $product->sku ?? '-' }}</td>
                             
                             <td class="px-6 py-4 text-center">
                                 <span class="text-base font-bold text-gray-800">
@@ -96,7 +96,7 @@
                                 @endif
                             </td>
                             
-                            <td class="px-6 py-4 text-right space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <td class="px-6 py-4 text-right space-x-2">
                                 <a href="{{ route('products.show', $product) }}" class="text-blue-600 hover:underline font-medium" title="Lihat Detail">👁</a>
                                 <a href="{{ route('products.edit', $product) }}" class="text-accent hover:underline font-medium" title="Edit">✏️</a>
                                 <form method="POST" action="{{ route('products.destroy', $product) }}" class="inline" onsubmit="return confirm('Yakin hapus produk ini?')">

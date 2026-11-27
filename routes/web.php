@@ -35,4 +35,5 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('vendors', VendorController::class);
     Route::resource('transactions', TransactionController::class);
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/download', [ReportController::class, 'download'])->name('reports.download');
 });

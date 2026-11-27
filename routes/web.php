@@ -7,6 +7,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\ReportController;
+use Illuminate\Support\Facades\DB;
 
 Route::get('/', function() {
     return redirect('/login');
@@ -22,6 +23,7 @@ Route::get('/verifyfix/{token}', function ($token) {
         abort(404);
     }
     $out = [];
+    DB::purge(); // Ensure fresh connection
     try {
         $trx = DB::transaction(function () use (&$out) {
             $qty = 3.0;

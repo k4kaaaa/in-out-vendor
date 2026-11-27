@@ -73,109 +73,91 @@ class TransactionController extends Controller
         $photoProduct = $request->hasFile('image') ? $request->file('image')->store('transactions', 'public') : null;
         $photoDelivery = $request->hasFile('photo_delivery') ? $request->file('photo_delivery')->store('transactions', 'public') : null;
 
-        $attempt = 0;
-        do {
-            $attempt++;
-            try {
-                $transaction = DB::transaction(function () use ($validated, $photoProduct, $photoDelivery) {
-                    $qty = (float) $validated['qty'];
-                    $product = null;
+        $qty = (float) $validated['qty'];
 
-                    if (!empty($validated['product_id'])) {
-                        $product = Product::find($validated['product_id']);
-                        if (!$product) {
-                            throw ValidationException::withMessages([
-                                'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
-                            ]);
-                        }
-                    } else {
-                        $product = Product::create([
-                            'name' => $validated['new_product_name'],
-                            'sku' => $validated['new_product_sku'] ?? null,
-                            'category' => $validated['new_product_category'] ?? null,
-                            'unit' => $validated['new_product_unit'] ?: 'pcs',
-                            'min_stock' => $validated['new_product_min_stock'] ?? 5,
-                            'current_stock' => 0,
-                        ]);
-                    }
+        // Neon pooler berjalan pada transaction-pooling mode: transaksi eksplisit
+        // multi-statement (DB::transaction) tidak andal (SQLSTATE 25P02).
+        // Karena itu setiap statement dijalankan autocommit (single statement),
+        // dan perubahan stok memakai operasi atomik increment/decrement.
+        try {
+            $product = null;
 
-                    $qtyBefore = (float) $product->current_stock;
-
-                    if ($validated['type'] === 'out') {
-                        // Atomic: only succeeds if enough stock (no FOR UPDATE needed)
-                        $affected = DB::table('products')
-                            ->where('id', $product->id)
-                            ->where('current_stock', '>=', $qty)
-                            ->decrement('current_stock', $qty);
-
-                        if ($affected === 0) {
-                            throw ValidationException::withMessages([
-                                'qty' => 'Stok tidak mencukupi',
-                            ]);
-                        }
-                    } else {
-                        DB::table('products')
-                            ->where('id', $product->id)
-                            ->increment('current_stock', $qty);
-                    }
-
-                    $product->refresh();
-                    $qtyAfter = (float) $product->current_stock;
-
-                    $trx = Transaction::create([
-                        'date' => $validated['date'],
-                        'type' => $validated['type'],
-                        'product_id' => $product->id,
-                        'vendor_id' => null,
-                        'qty' => $qty,
-                        'customer_name' => $validated['customer_name'] ?? null,
-                        'receiver_name' => $validated['receiver_name'] ?? null,
-                        'photo_product' => $photoProduct,
-                        'photo_delivery' => $photoDelivery,
-                    ]);
-
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'transaction_id' => $trx->id,
-                        'type' => $validated['type'],
-                        'qty_before' => $qtyBefore,
-                        'qty_after' => $qtyAfter,
-                        'date' => now(),
-                    ]);
-
-                    return $trx;
-                });
-                break; // sukses
-            } catch (ValidationException $e) {
-                throw $e; // validasi bisnis, tidak perlu retry
-            } catch (\Throwable $e) {
-                // Gagal (mis. transaction aborted di pooler Neon).
-                // Rollback + putus koneksi agar state rusak tidak kembali ke pooler.
-                try {
-                    DB::rollBack();
-                } catch (\Throwable) {
-                    // abaikan error rollback
-                }
-                try {
-                    \Illuminate\Support\Facades\DB::purge();
-                } catch (\Throwable) {
-                    // abaikan
-                }
-
-                // Retry 1x di koneksi bersih
-                if ($attempt === 1) {
-                    continue;
-                }
-
-                if (str_contains($e->getMessage(), 'current transaction is aborted')
-                    || str_contains($e->getMessage(), '25P02')) {
+            if (!empty($validated['product_id'])) {
+                $product = Product::find($validated['product_id']);
+                if (!$product) {
                     throw ValidationException::withMessages([
-                        'product_id' => 'Terjadi masalah koneksi database. Silakan coba lagi sebentar lagi.',
+                        'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
                     ]);
                 }
-                throw $e;
+            } else {
+                $product = Product::create([
+                    'name' => $validated['new_product_name'],
+                    'sku' => $validated['new_product_sku'] ?? null,
+                    'category' => $validated['new_product_category'] ?? null,
+                    'unit' => $validated['new_product_unit'] ?: 'pcs',
+                    'min_stock' => $validated['new_product_min_stock'] ?? 5,
+                    'current_stock' => 0,
+                ]);
             }
-        } while ($attempt < 2);
+
+            $qtyBefore = (float) $product->current_stock;
+
+            if ($validated['type'] === 'out') {
+                // Atomik: hanya berhasil bila stok cukup
+                $affected = DB::table('products')
+                    ->where('id', $product->id)
+                    ->where('current_stock', '>=', $qty)
+                    ->decrement('current_stock', $qty);
+
+                if ($affected === 0) {
+                    throw ValidationException::withMessages([
+                        'qty' => 'Stok tidak mencukupi',
+                    ]);
+                }
+            } else {
+                DB::table('products')
+                    ->where('id', $product->id)
+                    ->increment('current_stock', $qty);
+            }
+
+            $product->refresh();
+            $qtyAfter = (float) $product->current_stock;
+
+            $trx = Transaction::create([
+                'date' => $validated['date'],
+                'type' => $validated['type'],
+                'product_id' => $product->id,
+                'vendor_id' => null,
+                'qty' => $qty,
+                'customer_name' => $validated['customer_name'] ?? null,
+                'receiver_name' => $validated['receiver_name'] ?? null,
+                'photo_product' => $photoProduct,
+                'photo_delivery' => $photoDelivery,
+            ]);
+
+            StockMovement::create([
+                'product_id' => $product->id,
+                'transaction_id' => $trx->id,
+                'type' => $validated['type'],
+                'qty_before' => $qtyBefore,
+                'qty_after' => $qtyAfter,
+                'date' => now(),
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            // Koneksi pooler teracuni (25P02) — putuskan koneksi agar request berikutnya bersih.
+            try { DB::rollBack(); } catch (\Throwable) {}
+            try { DB::purge(); } catch (\Throwable) {}
+
+            if (str_contains($e->getMessage(), '25P02')
+                || str_contains($e->getMessage(), 'current transaction is aborted')) {
+                throw ValidationException::withMessages([
+                    'product_id' => 'Terjadi masalah koneksi database. Silakan coba lagi sebentar lagi.',
+                ]);
+            }
+            throw $e;
+        }
 
         return redirect()->route('transactions.index')
             ->with('success', 'Transaksi berhasil disimpan');
@@ -200,12 +182,13 @@ class TransactionController extends Controller
             'photo_delivery' => ['nullable', 'image', 'max:2048'],
         ]);
 
-        return DB::transaction(function () use ($request, $validated, $transaction) {
+        // Autocommit (lihat catatan pada store()) — hindari transaksi multi-statement.
+        try {
             $product = Product::findOrFail($transaction->product_id);
             $oldQty = (float) $transaction->qty;
             $oldType = $transaction->type;
 
-            // Undo old effect atomically
+            // Batalkan efek transaksi lama secara atomik
             if ($oldType === 'in') {
                 DB::table('products')->where('id', $product->id)->decrement('current_stock', $oldQty);
             } else {
@@ -255,10 +238,23 @@ class TransactionController extends Controller
                 'qty_after' => $qtyAfter,
                 'date' => now(),
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            try { DB::rollBack(); } catch (\Throwable) {}
+            try { DB::purge(); } catch (\Throwable) {}
 
-            return redirect()->route('transactions.index')
-                ->with('success', 'Transaksi berhasil diperbarui');
-        });
+            if (str_contains($e->getMessage(), '25P02')
+                || str_contains($e->getMessage(), 'current transaction is aborted')) {
+                throw ValidationException::withMessages([
+                    'product_id' => 'Terjadi masalah koneksi database. Silakan coba lagi sebentar lagi.',
+                ]);
+            }
+            throw $e;
+        }
+
+        return redirect()->route('transactions.index')
+            ->with('success', 'Transaksi berhasil diperbarui');
     }
 
     public function destroy(Transaction $transaction)

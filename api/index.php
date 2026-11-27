@@ -48,45 +48,6 @@ putenv("VIEW_COMPILED_PATH=/tmp/storage/framework/views");
 require __DIR__ . '/../vendor/autoload.php';
 
 // Jalankan Laravel
-try {
-    $app = require_once __DIR__ . '/../bootstrap/app.php';
-    $app->useStoragePath('/tmp/storage');
-    
-    // Override exception handler untuk mengembalikan JSON error tanpa merender view
-    $app->singleton(
-        \Illuminate\Contracts\Debug\ExceptionHandler::class,
-        function ($app) {
-            return new class implements \Illuminate\Contracts\Debug\ExceptionHandler {
-                public function report(\Throwable $e) {}
-                public function shouldReport(\Throwable $e) { return false; }
-                public function render($request, \Throwable $e) {
-                    return new \Illuminate\Http\JsonResponse([
-                        'message' => $e->getMessage(),
-                        'exception' => get_class($e),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                        'trace' => explode("\n", $e->getTraceAsString())
-                    ], 500);
-                }
-                public function renderForConsole($output, \Throwable $e) {}
-            };
-        }
-    );
-
-    $request = Illuminate\Http\Request::capture();
-    // DEBUG: tampilkan path dan daftar route yang terdaftar
-    if ($request->query('debug') === '1') {
-        $routes = collect(app('router')->getRoutes())->map(fn($r) => $r->uri() . ' [' . implode('|', $r->methods()) . ']');
-        die('PATH_INFO: ' . $_SERVER['PATH_INFO'] . "\nREQUEST_URI: " . $_SERVER['REQUEST_URI'] . "\n\nROUTES:\n" . $routes->implode("\n"));
-    }
-    $app->handleRequest($request);
-} catch (\Throwable $e) {
-    header('Content-Type: application/json');
-    http_response_code(500);
-    echo json_encode([
-        'error' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => explode("\n", $e->getTraceAsString())
-    ], JSON_PRETTY_PRINT);
-}
+$app = require_once __DIR__ . '/../bootstrap/app.php';
+$app->useStoragePath('/tmp/storage');
+$app->handleRequest(Illuminate\Http\Request::capture());

@@ -23,8 +23,11 @@ class TransactionController extends Controller
         }
         if ($search = $request->input('search')) {
             $query->where(function($q) use ($search) {
-                $q->whereHas('product', fn($p) => $p->where('name', 'like', "%{$search%}%")->orWhere('sku', 'like', "%{$search}%"))
-                  ->orWhere('customer_name', 'like', "%{$search}%");
+                $q->whereHas('product', function ($p) use ($search) {
+                        $p->where('name', 'like', '%'.$search.'%')
+                          ->orWhere('sku', 'like', '%'.$search.'%');
+                    })
+                  ->orWhere('customer_name', 'like', '%'.$search.'%');
             });
         }
         if ($vendorId = $request->input('vendor_id')) {

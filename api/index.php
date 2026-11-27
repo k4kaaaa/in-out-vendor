@@ -72,9 +72,6 @@ try {
         }
     );
 
-    // DEBUG: Apa yang Laravel lihat?
-    die('PATH_INFO: ' . $_SERVER['PATH_INFO'] . ' | REQUEST_URI: ' . $_SERVER['REQUEST_URI']);
-
     $app->handleRequest(Illuminate\Http\Request::capture());
 } catch (\Throwable $e) {
     header('Content-Type: application/json');

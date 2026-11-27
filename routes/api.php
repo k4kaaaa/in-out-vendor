@@ -3,7 +3,7 @@
 use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/api/auth/login', [ApiController::class, 'login']);
+Route::post('/auth/login', [ApiController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/products', [ApiController::class, 'products']);

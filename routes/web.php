@@ -17,36 +17,47 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// TEMPORARY DIAGNOSTIC 2 — remove after confirmed
+// TEMPORARY DIAGNOSTIC 3 — remove after confirmed
 Route::get('/diagfix2/{token}', function ($token) {
     if ($token !== 'X7k9p2mQz4v') {
         abort(404);
     }
     $out = [];
 
-    // Step 0b: NOT NULL columns without default on products / stock_movements
-    foreach (['products', 'stock_movements', 'transactions'] as $t) {
-        try {
-            $cols = DB::select("SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_name = ? ORDER BY ordinal_position", [$t]);
-            $out['columns'][$t] = array_map(fn($c) => $c->column_name . ' ' . $c->data_type . ($c->is_nullable === 'NO' ? ' NOT NULL' : '') . ($c->column_default ? ' default ' . $c->column_default : ''), $cols);
-        } catch (\Throwable $e) {
-            $out['columns'][$t] = $e->getMessage();
-        }
-    }
-
-    // Step 1: fresh-connection sanity
+    // A: who is stuck (sessions / locks on products row id=1)
     try {
-        DB::selectOne('SELECT 1');
-        $out['select1'] = 'OK';
+        $acts = DB::select('SELECT pid, state, now() - xact_start AS xact_age, wait_event_type, wait_event, left(query, 100) AS query FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()');
+        $out['sessions'] = array_map(fn($a) => $a->pid . ' | ' . $a->state . ' | age=' . $a->xact_age . ' | wait=' . $a->wait_event_type . '/' . $a->wait_event . ' | ' . $a->query, $acts);
     } catch (\Throwable $e) {
-        $out['select1'] = get_class($e) . ': ' . $e->getMessage();
+        $out['sessions'] = $e->getMessage();
     }
 
-    // Step 2: full controller flow inside one transaction (rolled back)
+    // B: terminate stuck idle-in-transaction sessions (they hold FOR UPDATE locks)
     try {
-        DB::transaction(function () use ($out) {
+        $term = DB::select("SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND state IN ('idle in transaction', 'idle in transaction (aborted)')");
+        $out['terminated_pids'] = array_map(function ($t) {
+            $r = DB::selectOne('SELECT pg_terminate_backend(?) AS ok', [$t->pid]);
+            return $t->pid . '=' . ($r->ok ? 'terminated' : 'busy');
+        }, $term);
+    } catch (\Throwable $e) {
+        $out['terminated_pids'] = 'ERROR: ' . $e->getMessage();
+    }
+
+    // C: exact Eloquent SELECT outside any transaction (autocommit)
+    try {
+        $r = DB::select('SELECT * FROM products WHERE id = 1 LIMIT 1 FOR UPDATE');
+        $out['select_for_update'] = 'OK: ' . ($r[0]->name ?? '?');
+    } catch (\Throwable $e) {
+        try { DB::rollBack(); } catch (\Throwable) {}
+        $out['select_for_update'] = get_class($e) . ': ' . $e->getMessage();
+    }
+
+    // D: full flow inside transaction, capturing each step (by-ref array)
+    try {
+        $out['flow'] = DB::transaction(function () use (&$out) {
+            $steps = [];
             $name = DB::table('products')->where('id', 1)->lockForUpdate()->value('name');
-            $out['step1_lock'] = $name;
+            $steps[] = 'lock: ' . var_export($name, true);
 
             $tid = DB::table('transactions')->insertGetId([
                 'date' => '2026-11-27 00:00:00',
@@ -54,15 +65,15 @@ Route::get('/diagfix2/{token}', function ($token) {
                 'product_id' => 1,
                 'vendor_id' => null,
                 'qty' => 1,
-                'customer_name' => 'diag2',
-                'receiver_name' => 'diag2',
+                'customer_name' => 'diag3',
+                'receiver_name' => 'diag3',
                 'photo_product' => null,
                 'photo_delivery' => null,
             ]);
-            $out['step2_txn'] = 'id=' . $tid;
+            $steps[] = 'txn: id=' . $tid;
 
             DB::table('products')->where('id', 1)->update(['current_stock' => 0]);
-            $out['step3_update'] = 'OK';
+            $steps[] = 'product update: OK';
 
             DB::table('stock_movements')->insertGetId([
                 'product_id' => 1,
@@ -72,40 +83,21 @@ Route::get('/diagfix2/{token}', function ($token) {
                 'qty_after' => 0,
                 'date' => now(),
             ]);
-            $out['step4_sm'] = 'OK';
+            $steps[] = 'sm: OK';
+
+            return implode(' | ', $steps);
         });
-        $out['flow'] = 'OK (rolled back)';
     } catch (\Throwable $e) {
-        $out['flow'] = get_class($e) . ': ' . $e->getMessage();
+        $out['flow'] = 'FAIL: ' . get_class($e) . ': ' . $e->getMessage();
     }
 
-    // Step 3: simulate polluted connection (aborted txn state on same connection)
+    // Cleanup
     try {
-        DB::beginTransaction();
-        DB::statement('INSERT INTO transactions (nonexistent_column_xyz) VALUES (1)');
+        DB::table('transactions')->where('customer_name', 'diag3')->delete();
+        $out['cleanup'] = 'OK';
     } catch (\Throwable $e) {
-        $out['pollute'] = get_class($e) . ': ' . $e->getMessage();
+        $out['cleanup'] = $e->getMessage();
     }
-    try {
-        DB::selectOne('SELECT 1');
-        $out['polluted_select1'] = 'OK (connection clean)';
-    } catch (\Throwable $e) {
-        $out['polluted_select1'] = get_class($e) . ': ' . $e->getMessage();
-    }
-    // Now fix it like the controller retry does
-    try { DB::rollBack(); } catch (\Throwable) {}
-    DB::purge();
-    try {
-        DB::selectOne('SELECT 1');
-        $out['after_purge_select1'] = 'OK (clean after purge)';
-    } catch (\Throwable $e) {
-        $out['after_purge_select1'] = get_class($e) . ': ' . $e->getMessage();
-    }
-
-    // Cleanup: delete diag transaction row; stock_movements cascades via FK
-    try {
-        DB::table('transactions')->where('customer_name', 'diag2')->delete();
-    } catch (\Throwable) {}
 
     return response()->json($out);
 });

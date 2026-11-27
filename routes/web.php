@@ -16,6 +16,10 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+Route::get('/debug-dash', function () {
+    return app(DashboardController::class)->index();
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/', function() {
         if (auth()->user()->role === 'staff') {

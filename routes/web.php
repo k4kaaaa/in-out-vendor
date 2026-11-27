@@ -23,39 +23,51 @@ Route::get('/verifyfix/{token}', function ($token) {
         abort(404);
     }
     $out = [];
-    DB::purge(); // Ensure fresh connection
 
-    // Triggers on products / stock_movements
-    try {
-        $tr = DB::select("SELECT relname, tgname FROM pg_trigger JOIN pg_class ON relnamespace=(SELECT oid FROM pg_namespace WHERE nspname='public') AND relname IN ('products','stock_movements','transactions') WHERE NOT tgisinternal AND oid = tgrelid");
-        $out['triggers'] = array_map(fn($t) => $t->relname . ':' . $t->tgname, $tr);
-    } catch (\Throwable $e) {
-        $out['triggers'] = $e->getMessage();
-    }
+    $t = function (string $label, callable $fn) use (&$out) {
+        DB::purge();
+        try {
+            $r = $fn();
+            $out[$label] = 'OK' . ($r !== null ? ': ' . (is_string($r) ? $r : json_encode($r)) : '');
+        } catch (\Throwable $e) {
+            try { DB::rollBack(); } catch (\Throwable) {}
+            $out[$label] = get_class($e) . ': ' . substr($e->getMessage(), 0, 220);
+        }
+        return $out[$label];
+    };
 
-    $out['steps'] = [];
-    try {
+    $t('A_autocommit_select_products', fn() => DB::selectOne('select * from products where id = 1 limit 1'));
+
+    $t('B_txn_select_products', function () {
         DB::beginTransaction();
-        try { DB::selectOne('SELECT 1'); $out['steps'][] = 's0_select1 OK'; }
-        catch (\Throwable $e) { $out['steps'][] = 's0_select1 FAIL: ' . $e->getMessage(); }
+        $r = DB::selectOne('select * from products where id = 1 limit 1');
+        DB::commit();
+        return $r;
+    });
 
-        try { $p = \App\Models\Product::find(1); $out['steps'][] = 's1_find OK stock=' . $p->current_stock; }
-        catch (\Throwable $e) { $out['steps'][] = 's1_find FAIL: ' . $e->getMessage(); }
+    $t('C_txn_select1_then_products', function () {
+        DB::beginTransaction();
+        DB::selectOne('SELECT 1');
+        $r = DB::selectOne('select * from products where id = 1 limit 1');
+        DB::commit();
+        return $r;
+    });
 
-        try { DB::table('products')->where('id', 1)->increment('current_stock', 3); $out['steps'][] = 's2_increment OK'; }
-        catch (\Throwable $e) { $out['steps'][] = 's2_increment FAIL: ' . $e->getMessage(); }
+    $t('D_txn_update_products', function () {
+        DB::beginTransaction();
+        $r = DB::statement('update products set current_stock = current_stock + 0 where id = 1');
+        DB::commit();
+        return $r;
+    });
 
-        try { $t = \App\Models\Transaction::create(['date' => now()->format('Y-m-d'), 'type' => 'in', 'product_id' => 1, 'qty' => 3, 'customer_name' => 'vf', 'receiver_name' => 'vf']); $out['steps'][] = 's3_txn OK id=' . $t->id; }
-        catch (\Throwable $e) { $out['steps'][] = 's3_txn FAIL: ' . $e->getMessage(); }
+    $t('E_txn_increment', function () {
+        DB::beginTransaction();
+        $r = DB::table('products')->where('id', 1)->increment('current_stock', 0);
+        DB::commit();
+        return $r;
+    });
 
-        try { \App\Models\StockMovement::create(['product_id' => 1, 'transaction_id' => $t->id ?? 0, 'type' => 'in', 'qty_before' => 0, 'qty_after' => 3, 'date' => now()]); $out['steps'][] = 's4_sm OK'; }
-        catch (\Throwable $e) { $out['steps'][] = 's4_sm FAIL: ' . $e->getMessage(); }
-
-        try { DB::commit(); $out['steps'][] = 'commit OK'; }
-        catch (\Throwable $e) { $out['steps'][] = 'commit FAIL: ' . $e->getMessage(); }
-    } catch (\Throwable $e) {
-        $out['begin_FAIL'] = $e->getMessage();
-    }
+    $t('F_eloquent_find_no_txn', fn() => \App\Models\Product::find(1));
 
     return response()->json($out);
 });

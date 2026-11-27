@@ -70,8 +70,15 @@ class TransactionController extends Controller
         }
 
         return DB::transaction(function () use ($request, $validated) {
+            $product = null;
+
             if (!empty($validated['product_id'])) {
-                $product = Product::where('id', $validated['product_id'])->lockForUpdate()->firstOrFail();
+                $product = Product::where('id', $validated['product_id'])->lockForUpdate()->first();
+                if (!$product) {
+                    throw ValidationException::withMessages([
+                        'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
+                    ]);
+                }
             } else {
                 $product = Product::create([
                     'name' => $validated['new_product_name'],

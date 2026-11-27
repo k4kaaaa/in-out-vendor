@@ -24,50 +24,49 @@ Route::get('/verifyfix/{token}', function ($token) {
     }
     $out = [];
 
-    $t = function (string $label, callable $fn) use (&$out) {
-        DB::purge();
-        try {
-            $r = $fn();
-            $out[$label] = 'OK' . ($r !== null ? ': ' . (is_string($r) ? $r : json_encode($r)) : '');
-        } catch (\Throwable $e) {
-            try { DB::rollBack(); } catch (\Throwable) {}
-            $out[$label] = get_class($e) . ': ' . substr($e->getMessage(), 0, 220);
-        }
-        return $out[$label];
-    };
-
-    $t('A_autocommit_select_products', fn() => DB::selectOne('select * from products where id = 1 limit 1'));
-
-    $t('B_txn_select_products', function () {
-        DB::beginTransaction();
-        $r = DB::selectOne('select * from products where id = 1 limit 1');
-        DB::commit();
-        return $r;
-    });
-
-    $t('C_txn_select1_then_products', function () {
+    // X: bare purge + BEGIN; SELECT 1; COMMIT  (reproduces poison)
+    DB::purge();
+    try {
         DB::beginTransaction();
         DB::selectOne('SELECT 1');
-        $r = DB::selectOne('select * from products where id = 1 limit 1');
         DB::commit();
-        return $r;
-    });
+        $out['X_bare'] = 'OK';
+    } catch (\Throwable $e) {
+        try { DB::rollBack(); } catch (\Throwable) {}
+        $out['X_bare'] = get_class($e) . ': ' . substr($e->getMessage(), 0, 150);
+    }
 
-    $t('D_txn_update_products', function () {
+    // Y: pre-ROLLBACK then purge + BEGIN; SELECT 1; COMMIT  (clears poison?)
+    DB::purge();
+    try { DB::rollBack(); } catch (\Throwable) {}
+    try {
         DB::beginTransaction();
-        $r = DB::statement('update products set current_stock = current_stock + 0 where id = 1');
+        DB::selectOne('SELECT 1');
         DB::commit();
-        return $r;
-    });
+        $out['Y_prerollback'] = 'OK';
+    } catch (\Throwable $e) {
+        try { DB::rollBack(); } catch (\Throwable) {}
+        $out['Y_prerollback'] = get_class($e) . ': ' . substr($e->getMessage(), 0, 150);
+    }
 
-    $t('E_txn_increment', function () {
-        DB::beginTransaction();
-        $r = DB::table('products')->where('id', 1)->increment('current_stock', 0);
-        DB::commit();
-        return $r;
-    });
-
-    $t('F_eloquent_find_no_txn', fn() => \App\Models\Product::find(1));
+    // Z: loop 8x { purge; prerollback; begin; select1; select products; commit }
+    $zok = 0; $zfail = 0; $zerr = null;
+    for ($i = 0; $i < 8; $i++) {
+        DB::purge();
+        try { DB::rollBack(); } catch (\Throwable) {}
+        try {
+            DB::beginTransaction();
+            DB::selectOne('SELECT 1');
+            DB::selectOne('select id from products where id = 1 limit 1');
+            DB::commit();
+            $zok++;
+        } catch (\Throwable $e) {
+            try { DB::rollBack(); } catch (\Throwable) {}
+            $zfail++;
+            $zerr = substr($e->getMessage(), 0, 120);
+        }
+    }
+    $out['Z_loop'] = "ok=$zok fail=$zfail last_err=" . ($zerr ?? 'none');
 
     return response()->json($out);
 });

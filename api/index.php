@@ -7,6 +7,13 @@ if (isset($_SERVER['REQUEST_URI'])) {
     $_SERVER['PATH_INFO'] = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 }
 
+// Laravel membutuhkan flag HTTPS untuk membangun URL scheme yang benar
+// Vercel sudah menghentikan HTTPS di edge tapi PHP serverless tidak mengisi $_SERVER['HTTPS']
+if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    $_SERVER['HTTPS'] = 'on';
+    $_SERVER['SERVER_PORT'] = '443';
+}
+
 // Vercel serverless hanya punya izin tulis di /tmp
 // Kita pindahkan folder cache Laravel ke /tmp agar PackageManifest/PackageManifest dapat menulis file.
 try {

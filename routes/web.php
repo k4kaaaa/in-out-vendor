@@ -16,6 +16,21 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+Route::get('/fix-sessions', function () {
+    if (!Schema::hasTable('sessions')) {
+        Schema::create('sessions', function ($table) {
+            $table->string('id')->primary();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+        return 'Table sessions created successfully!';
+    }
+    return 'Table sessions already exists.';
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/', function() {
         if (auth()->user()->role === 'staff') {

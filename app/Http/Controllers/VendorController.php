@@ -7,9 +7,15 @@ use Illuminate\Http\Request;
 
 class VendorController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $vendors = Vendor::all();
+        $query = Vendor::query();
+        if ($search = $request->input('search')) {
+            $query->where('name', 'like', '%' . $search . '%')
+                  ->orWhere('address', 'like', '%' . $search . '%')
+                  ->orWhere('contact', 'like', '%' . $search . '%');
+        }
+        $vendors = $query->latest()->get();
         return view('vendors.index', compact('vendors'));
     }
 

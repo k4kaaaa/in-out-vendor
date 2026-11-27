@@ -69,65 +69,106 @@ class TransactionController extends Controller
             ]);
         }
 
-        return DB::transaction(function () use ($request, $validated) {
-            $product = null;
+        // Simpan file dulu, di luar transaksi DB (file I/O tidak perlu berada dalam transaction)
+        $photoProduct = $request->hasFile('image') ? $request->file('image')->store('transactions', 'public') : null;
+        $photoDelivery = $request->hasFile('photo_delivery') ? $request->file('photo_delivery')->store('transactions', 'public') : null;
 
-            if (!empty($validated['product_id'])) {
-                $product = Product::where('id', $validated['product_id'])->lockForUpdate()->first();
-                if (!$product) {
+        $attempt = 0;
+        do {
+            $attempt++;
+            try {
+                $transaction = DB::transaction(function () use ($validated, $photoProduct, $photoDelivery) {
+                    $product = null;
+
+                    if (!empty($validated['product_id'])) {
+                        $product = Product::where('id', $validated['product_id'])->lockForUpdate()->first();
+                        if (!$product) {
+                            throw ValidationException::withMessages([
+                                'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
+                            ]);
+                        }
+                    } else {
+                        $product = Product::create([
+                            'name' => $validated['new_product_name'],
+                            'sku' => $validated['new_product_sku'] ?? null,
+                            'category' => $validated['new_product_category'] ?? null,
+                            'unit' => $validated['new_product_unit'] ?: 'pcs',
+                            'min_stock' => $validated['new_product_min_stock'] ?? 5,
+                            'current_stock' => 0,
+                        ]);
+                    }
+
+                    $qtyBefore = $product->current_stock;
+
+                    if ($validated['type'] === 'out' && $product->current_stock < $validated['qty']) {
+                        throw ValidationException::withMessages([
+                            'qty' => 'Stok tidak mencukupi',
+                        ]);
+                    }
+
+                    $trx = Transaction::create([
+                        'date' => $validated['date'],
+                        'type' => $validated['type'],
+                        'product_id' => $product->id,
+                        'vendor_id' => null,
+                        'qty' => $validated['qty'],
+                        'customer_name' => $validated['customer_name'] ?? null,
+                        'receiver_name' => $validated['receiver_name'] ?? null,
+                        'photo_product' => $photoProduct,
+                        'photo_delivery' => $photoDelivery,
+                    ]);
+
+                    $qtyAfter = ($validated['type'] === 'in')
+                        ? $product->current_stock + $validated['qty']
+                        : $product->current_stock - $validated['qty'];
+
+                    $product->update(['current_stock' => $qtyAfter]);
+
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'transaction_id' => $trx->id,
+                        'type' => $validated['type'],
+                        'qty_before' => $qtyBefore,
+                        'qty_after' => $qtyAfter,
+                        'date' => now(),
+                    ]);
+
+                    return $trx;
+                });
+                break; // sukses
+            } catch (ValidationException $e) {
+                throw $e; // validasi bisnis, tidak perlu retry
+            } catch (\Throwable $e) {
+                // Gagal (mis. transaction aborted di pooler Neon).
+                // Rollback + putus koneksi agar state rusak tidak kembali ke pooler.
+                try {
+                    DB::rollBack();
+                } catch (\Throwable) {
+                    // abaikan error rollback
+                }
+                try {
+                    \Illuminate\Support\Facades\DB::purge();
+                } catch (\Throwable) {
+                    // abaikan
+                }
+
+                // Retry 1x di koneksi bersih
+                if ($attempt === 1) {
+                    continue;
+                }
+
+                if (str_contains($e->getMessage(), 'current transaction is aborted')
+                    || str_contains($e->getMessage(), '25P02')) {
                     throw ValidationException::withMessages([
-                        'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
+                        'product_id' => 'Terjadi masalah koneksi database. Silakan coba lagi sebentar lagi.',
                     ]);
                 }
-            } else {
-                $product = Product::create([
-                    'name' => $validated['new_product_name'],
-                    'sku' => $validated['new_product_sku'] ?? null,
-                    'category' => $validated['new_product_category'] ?? null,
-                    'unit' => $validated['new_product_unit'] ?: 'pcs',
-                    'min_stock' => $validated['new_product_min_stock'] ?? 5,
-                    'current_stock' => 0,
-                ]);
+                throw $e;
             }
+        } while ($attempt < 2);
 
-            $qtyBefore = $product->current_stock;
-
-            if ($validated['type'] === 'out' && $product->current_stock < $validated['qty']) {
-                throw ValidationException::withMessages([
-                    'qty' => 'Stok tidak mencukupi',
-                ]);
-            }
-
-            $transaction = Transaction::create([
-                'date' => $validated['date'],
-                'type' => $validated['type'],
-                'product_id' => $validated['product_id'],
-                'vendor_id' => null,
-                'qty' => $validated['qty'],
-                'customer_name' => $validated['customer_name'] ?? null,
-                'receiver_name' => $validated['receiver_name'] ?? null,
-                'photo_product' => $request->file('image') ? $request->file('image')->store('transactions', 'public') : null,
-                'photo_delivery' => $request->file('photo_delivery') ? $request->file('photo_delivery')->store('transactions', 'public') : null,
-            ]);
-
-            $qtyAfter = ($validated['type'] === 'in')
-                ? $product->current_stock + $validated['qty']
-                : $product->current_stock - $validated['qty'];
-
-            $product->update(['current_stock' => $qtyAfter]);
-
-            StockMovement::create([
-                'product_id' => $product->id,
-                'transaction_id' => $transaction->id,
-                'type' => $validated['type'],
-                'qty_before' => $qtyBefore,
-                'qty_after' => $qtyAfter,
-                'date' => now(),
-            ]);
-
-            return redirect()->route('transactions.index')
-                ->with('success', 'Transaksi berhasil disimpan');
-        });
+        return redirect()->route('transactions.index')
+            ->with('success', 'Transaksi berhasil disimpan');
     }
 
     public function edit(Transaction $transaction)

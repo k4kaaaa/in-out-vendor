@@ -136,11 +136,11 @@
                 </div>
 
                 <!-- Login Card -->
-                <div class="bg-white/70 rounded-3xl card-glow border border-white/80 p-6 sm:p-8 max-w-full">
+                <div class="bg-white/70 rounded-3xl card-glow border border-white/80 p-5 sm:p-8 w-full max-w-[420px] mx-auto">
 
                     <!-- Box icon -->
-                    <div class="mb-5">
-                        <div class="w-16 h-16 mx-auto flex items-center justify-center mb-4 text-emerald-600">
+                    <div class="mb-3">
+                        <div class="w-14 h-14 mx-auto flex items-center justify-center mb-2 text-emerald-600">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
     <path d="M3.27 6.96L12 12.01L20.73 6.96"></path>
@@ -148,9 +148,9 @@
 </svg></div>
                     </div>
 
-                    <div class="mb-5">
+                    <div class="mb-4 text-center">
                         <h2 class="text-xl font-bold text-slate-900 tracking-tight">Selamat Datang</h2>
-                        <p class="text-sm text-slate-500 mt-1">Masuk untuk melanjutkan ke dashboard.</p>
+                        <p class="text-xs text-slate-500 mt-1">Masuk untuk melanjutkan ke dashboard.</p>
                     </div>
 
                     @if($errors->any())
@@ -207,7 +207,7 @@
 
                         <!-- reCAPTCHA -->
                         <div class="mb-4 flex justify-center">
-                            <div class="g-recaptcha" data-sitekey="6LfZ2BYuAAAAACs_xpP9xzo1dKsxEV9rD28Ioedl" data-theme="light" style="transform: scale(0.77); transform-origin: 0 0;"></div>
+                            <div class="g-recaptcha" data-sitekey="6LfZ2BYuAAAAACs_xpP9xzo1dKsxEV9rD28Ioedl" data-theme="light"></div>
                         </div>
 
                         <!-- Submit button -->

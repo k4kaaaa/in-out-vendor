@@ -103,7 +103,7 @@
     </div>
 
     <!-- Chart Section -->
-    <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+    <div class="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm">
         <div class="mb-6">
             <div class="flex items-center gap-2 text-accent font-bold text-sm mb-1">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -114,14 +114,14 @@
             <p class="text-xs text-gray-500">Total unit yang diterima setiap hari selama 7 hari terakhir.</p>
         </div>
 
-        <div class="h-72 w-full">
+        <div class="h-52 w-full sm:h-72">
             <canvas id="trendChart"></canvas>
         </div>
     </div>
 
     <!-- Recent transactions table -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
                 <h3 class="text-base font-bold text-gray-900">Transaksi Terbaru</h3>
                 <p class="text-xs text-gray-500">Penerimaan barang terakhir</p>
@@ -132,19 +132,19 @@
             <table class="w-full text-left">
                 <thead>
                 <tr class="bg-gray-50 border-b border-gray-100">
-                    <th class="px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Waktu & Tanggal</th>
-                    <th class="px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Vendor</th>
-                    <th class="px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Total Item</th>
-                    <th class="px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Status</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Waktu & Tanggal</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Vendor</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Total Item</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-xs font-semibold uppercase text-gray-500">Status</th>
                 </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
                 @forelse($recentTransactions as $tx)
                     <tr class="hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 text-gray-700">{{ $tx->date->format('d/m/Y H:i') }}</td>
-                        <td class="px-6 py-4 text-gray-800 font-medium">{{ $tx->vendor->name ?? '-' }}</td>
-                        <td class="px-6 py-4 text-gray-700 font-semibold">{{ number_format($tx->qty, 0, ',', '.') }} {{ $tx->product->name }}</td>
-                        <td class="px-6 py-4">
+                        <td class="px-4 sm:px-6 py-3.5 sm:py-4 text-gray-700">{{ $tx->date->format('d/m/Y H:i') }}</td>
+                        <td class="px-4 sm:px-6 py-3.5 sm:py-4 text-gray-800 font-medium">{{ $tx->vendor->name ?? '-' }}</td>
+                        <td class="px-4 sm:px-6 py-3.5 sm:py-4 text-gray-700 font-semibold">{{ number_format($tx->qty, 0, ',', '.') }} {{ $tx->product->name }}</td>
+                        <td class="px-4 sm:px-6 py-3.5 sm:py-4">
                             <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-accent">
                                 Selesai
                             </span>

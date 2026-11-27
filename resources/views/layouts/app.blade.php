@@ -117,13 +117,14 @@
                     </svg>
                 </button>
 
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="font-semibold text-gray-800">Warehouse Management</span>
-                    <span class="text-accent">/ Inbound operations</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm sm:text-base font-bold text-gray-900 truncate leading-tight">
+                        Warehouse <span class="hidden sm:inline">Management</span><span class="text-accent font-medium"> / Inbound</span>
+                    </p>
                 </div>
 
                 @auth
-                <div class="flex items-center gap-3 shrink-0">
+                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
                     <div class="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center font-bold text-sm shadow-sm">
                         {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
                     </div>

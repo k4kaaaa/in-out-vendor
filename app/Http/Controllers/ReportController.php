@@ -104,7 +104,7 @@ class ReportController extends Controller
             }
             $sheet->freezePane('A' . ($startRow + 1));
 
-            $writer = Xlsx::createForSpreadsheet($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment;filename="' . $base . '.xlsx"');
             header('Cache-Control: max-age=0');

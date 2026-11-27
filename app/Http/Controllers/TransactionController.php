@@ -78,10 +78,11 @@ class TransactionController extends Controller
             $attempt++;
             try {
                 $transaction = DB::transaction(function () use ($validated, $photoProduct, $photoDelivery) {
+                    $qty = (float) $validated['qty'];
                     $product = null;
 
                     if (!empty($validated['product_id'])) {
-                        $product = Product::where('id', $validated['product_id'])->lockForUpdate()->first();
+                        $product = Product::find($validated['product_id']);
                         if (!$product) {
                             throw ValidationException::withMessages([
                                 'product_id' => 'Produk dengan ID tersebut tidak ditemukan.',
@@ -98,31 +99,40 @@ class TransactionController extends Controller
                         ]);
                     }
 
-                    $qtyBefore = $product->current_stock;
+                    $qtyBefore = (float) $product->current_stock;
 
-                    if ($validated['type'] === 'out' && $product->current_stock < $validated['qty']) {
-                        throw ValidationException::withMessages([
-                            'qty' => 'Stok tidak mencukupi',
-                        ]);
+                    if ($validated['type'] === 'out') {
+                        // Atomic: only succeeds if enough stock (no FOR UPDATE needed)
+                        $affected = DB::table('products')
+                            ->where('id', $product->id)
+                            ->where('current_stock', '>=', $qty)
+                            ->decrement('current_stock', $qty);
+
+                        if ($affected === 0) {
+                            throw ValidationException::withMessages([
+                                'qty' => 'Stok tidak mencukupi',
+                            ]);
+                        }
+                    } else {
+                        DB::table('products')
+                            ->where('id', $product->id)
+                            ->increment('current_stock', $qty);
                     }
+
+                    $product->refresh();
+                    $qtyAfter = (float) $product->current_stock;
 
                     $trx = Transaction::create([
                         'date' => $validated['date'],
                         'type' => $validated['type'],
                         'product_id' => $product->id,
                         'vendor_id' => null,
-                        'qty' => $validated['qty'],
+                        'qty' => $qty,
                         'customer_name' => $validated['customer_name'] ?? null,
                         'receiver_name' => $validated['receiver_name'] ?? null,
                         'photo_product' => $photoProduct,
                         'photo_delivery' => $photoDelivery,
                     ]);
-
-                    $qtyAfter = ($validated['type'] === 'in')
-                        ? $product->current_stock + $validated['qty']
-                        : $product->current_stock - $validated['qty'];
-
-                    $product->update(['current_stock' => $qtyAfter]);
 
                     StockMovement::create([
                         'product_id' => $product->id,
@@ -191,42 +201,51 @@ class TransactionController extends Controller
         ]);
 
         return DB::transaction(function () use ($request, $validated, $transaction) {
-            $product = Product::where('id', $transaction->product_id)->lockForUpdate()->firstOrFail();
-            $oldQty = $transaction->qty;
+            $product = Product::findOrFail($transaction->product_id);
+            $oldQty = (float) $transaction->qty;
             $oldType = $transaction->type;
 
-            $oldQtyAfter = ($oldType === 'in')
-                ? $product->current_stock - $oldQty
-                : $product->current_stock + $oldQty;
-
-            $product->update(['current_stock' => $oldQtyAfter]);
+            // Undo old effect atomically
+            if ($oldType === 'in') {
+                DB::table('products')->where('id', $product->id)->decrement('current_stock', $oldQty);
+            } else {
+                DB::table('products')->where('id', $product->id)->increment('current_stock', $oldQty);
+            }
             $transaction->stockMovement()->delete();
 
             $product->refresh();
-            $qtyBefore = $product->current_stock;
+            $qtyBefore = (float) $product->current_stock;
+            $newQty = (float) $validated['qty'];
 
-            if ($validated['type'] === 'out' && $product->current_stock < $validated['qty']) {
-                throw ValidationException::withMessages([
-                    'qty' => 'Stok tidak mencukupi',
-                ]);
+            if ($validated['type'] === 'out') {
+                $affected = DB::table('products')
+                    ->where('id', $product->id)
+                    ->where('current_stock', '>=', $newQty)
+                    ->decrement('current_stock', $newQty);
+                if ($affected === 0) {
+                    throw ValidationException::withMessages([
+                        'qty' => 'Stok tidak mencukupi',
+                    ]);
+                }
+            } else {
+                DB::table('products')
+                    ->where('id', $product->id)
+                    ->increment('current_stock', $newQty);
             }
 
             $transaction->update([
                 'date' => $validated['date'],
                 'type' => $validated['type'],
                 'product_id' => $validated['product_id'],
-                'qty' => $validated['qty'],
+                'qty' => $newQty,
                 'customer_name' => $validated['customer_name'] ?? null,
                 'receiver_name' => $validated['receiver_name'] ?? null,
                 'photo_product' => $request->file('image') ? $request->file('image')->store('transactions', 'public') : $transaction->photo_product,
                 'photo_delivery' => $request->file('photo_delivery') ? $request->file('photo_delivery')->store('transactions', 'public') : $transaction->photo_delivery,
             ]);
 
-            $qtyAfter = ($validated['type'] === 'in')
-                ? $product->current_stock + $validated['qty']
-                : $product->current_stock - $validated['qty'];
-
-            $product->update(['current_stock' => $qtyAfter]);
+            $product->refresh();
+            $qtyAfter = (float) $product->current_stock;
 
             StockMovement::create([
                 'product_id' => $product->id,

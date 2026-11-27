@@ -29,7 +29,13 @@ class TransactionController extends Controller
         $validated = $request->validate([
             'date' => ['required', 'date'],
             'type' => ['required', 'in:in,out'],
-            'product_id' => ['required', 'exists:products,id'],
+            'product_mode' => ['nullable', 'in:existing,new'],
+            'product_id' => ['nullable', 'exists:products,id'],
+            'new_product_name' => ['nullable', 'string', 'max:255'],
+            'new_product_sku' => ['nullable', 'string', 'max:255'],
+            'new_product_category' => ['nullable', 'string', 'max:255'],
+            'new_product_unit' => ['nullable', 'string', 'max:50'],
+            'new_product_min_stock' => ['nullable', 'numeric', 'min:0'],
             'qty' => ['required', 'numeric', 'min:1'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'receiver_name' => ['nullable', 'string', 'max:255'],
@@ -37,8 +43,25 @@ class TransactionController extends Controller
             'photo_delivery' => ['nullable', 'image', 'max:2048'],
         ]);
 
+        if (empty($validated['product_id']) && empty($validated['new_product_name'])) {
+            throw ValidationException::withMessages([
+                'product_id' => 'Pilih barang yang sudah ada atau isi nama barang baru.',
+            ]);
+        }
+
         return DB::transaction(function () use ($request, $validated) {
-            $product = Product::where('id', $validated['product_id'])->lockForUpdate()->firstOrFail();
+            if (!empty($validated['product_id'])) {
+                $product = Product::where('id', $validated['product_id'])->lockForUpdate()->firstOrFail();
+            } else {
+                $product = Product::create([
+                    'name' => $validated['new_product_name'],
+                    'sku' => $validated['new_product_sku'] ?? null,
+                    'category' => $validated['new_product_category'] ?? null,
+                    'unit' => $validated['new_product_unit'] ?: 'pcs',
+                    'min_stock' => $validated['new_product_min_stock'] ?? 5,
+                    'current_stock' => 0,
+                ]);
+            }
 
             $qtyBefore = $product->current_stock;
 

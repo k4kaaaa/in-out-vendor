@@ -30,13 +30,7 @@ Route::get('/seed-user', function() {
         \Illuminate\Support\Facades\DB::statement('CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, product_id BIGINT NOT NULL, vendor_id BIGINT NULL, type VARCHAR(50) NOT NULL, quantity INT NOT NULL, user_id BIGINT NOT NULL, notes TEXT NULL, created_at TIMESTAMP NULL, updated_at TIMESTAMP NULL)');
     } catch (\Throwable $e) {}
 
-    // Ensure admin user exists
-    $adminExists = \Illuminate\Support\Facades\DB::statement('SELECT 1 FROM users WHERE email = \'admin@inoutvendor.local\'');
-    if (empty($adminExists)) {
-        \Illuminate\Support\Facades\DB::statement('INSERT INTO users (name, email, password, role) VALUES (\'API Admin\', \'admin@inoutvendor.local\', \''.\Illuminate\Support\Facades\Hash::make(\'password123\'), \'admin\')');
-    }
-
-    return response()->json(['status' => 'all tables & user ensured']);
+    return response()->json(['status' => 'all tables ensured']);
 });
 
 Route::middleware('auth:sanctum')->group(function () {

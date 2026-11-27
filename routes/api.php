@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/login', [ApiController::class, 'login']);
 
 Route::get('/seed-user', function() {
+    \Illuminate\Support\Facades\DB::statement('DISCARD ALL');
+
     try {
         \Illuminate\Support\Facades\DB::statement('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, email_verified_at TIMESTAMP NULL, password VARCHAR(255) NOT NULL, role VARCHAR(50) DEFAULT \'admin\', remember_token VARCHAR(100) NULL, created_at TIMESTAMP NULL, updated_at TIMESTAMP NULL)');
     } catch (\Throwable $e) {}

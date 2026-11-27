@@ -76,7 +76,7 @@ class ReportController extends Controller
             }
 
             foreach (array_keys($headers) as $i => $h) {
-                $sheet->setCellValueByColumnAndRow($i + 1, $startRow, $h);
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($i + 1) . $startRow, $h);
             }
             $headerRange = 'A' . $startRow . ':' . $lastCol . $startRow;
             $sheet->getStyle($headerRange)
@@ -86,19 +86,23 @@ class ReportController extends Controller
 
             foreach ($rows as $rIdx => $row) {
                 foreach ($row as $cIdx => $val) {
-                    $sheet->setCellValueByColumnAndRow($cIdx + 1, $startRow + 1 + $rIdx, $val);
+                    $sheet->setCellValue(Coordinate::stringFromColumnIndex($cIdx + 1) . ($startRow + 1 + $rIdx), $val);
                 }
             }
             if (count($rows)) {
                 $dataRange = 'A' . ($startRow + 1) . ':' . $lastCol . ($startRow + count($rows));
-                $sheet->getStyle($dataRange)->getBorders()->setAllBorders(Border::BORDER_THIN);
+                $sheet->getStyle($dataRange)->applyFromArray([
+                    'borders' => [
+                        'allBorders' => ['style' => Border::BORDER_THIN]
+                    ]
+                ]);
             }
 
             $widths = [20, 14, 24, 12, 20, 20, 24];
             for ($i = 1; $i <= count($headers); $i++) {
                 $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i))->setWidth($widths[$i - 1] ?? 16);
             }
-            $sheet->freezePane = 'A' . ($startRow + 1);
+            $sheet->freezePane('A' . ($startRow + 1));
 
             $writer = Xlsx::createForSpreadsheet($spreadsheet);
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

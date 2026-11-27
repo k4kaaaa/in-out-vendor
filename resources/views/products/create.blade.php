@@ -13,6 +13,16 @@
         <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data" class="space-y-5">
             @csrf
             
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Barang *</label>
+                <input type="text" name="name" required
+                    class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm text-sm focus:border-accent focus:ring-accent py-2.5 px-3 border"
+                    value="{{ old('name') }}" placeholder="Contoh: Semen 50kg">
+                @error('name')
+                    <p class="text-xs text-red-600 mt-1.5">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5">Kategori</label>

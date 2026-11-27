@@ -14,12 +14,22 @@
             @csrf
             @method('PUT')
             
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nama Barang *</label>
+                <input type="text" name="name" required
+                    class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm text-sm focus:border-accent focus:ring-accent py-2.5 px-3 border"
+                    value="{{ old('name', $product->name) }}" placeholder="Nama barang">
+                @error('name')
+                    <p class="text-xs text-red-600 mt-1.5">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5">Kategori</label>
                     <input type="text" name="category" list="categories"
                         class="mt-1 block w-full rounded-xl border-gray-300 shadow-sm text-sm focus:border-accent focus:ring-accent py-2.5 px-3 border"
-                        value="{{ old('category', $product->category) }}">
+                        value="{{ old('category', $product->category) }}" placeholder="Contoh: Material Bangunan">
                     <datalist id="categories">
                         <option value="Elektronik">
                         <option value="Alat Tulis">

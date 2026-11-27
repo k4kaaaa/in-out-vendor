@@ -15,6 +15,8 @@
                         accent: '#16a34a',
                         primary: '#16a34a',
                         secondary: '#0b3b2e',
+                        deepgreen: '#064e3b',
+                        mint: '#34d399',
                         surface: '#f6f8f7',
                     },
                     fontFamily: {

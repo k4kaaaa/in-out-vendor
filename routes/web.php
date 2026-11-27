@@ -50,7 +50,8 @@ Route::get('/schema-fix', function () {
         "alter table transactions add column if not exists photo_delivery varchar",
         "alter table transactions add column if not exists created_at timestamptz",
         "alter table transactions add column if not exists updated_at timestamptz",
-        // stock_movements
+        // stock_movements (missing table on Neon)
+        "create table if not exists stock_movements (id bigserial primary key, product_id bigint not null, transaction_id bigint not null, type varchar default 'in', qty_before numeric(15,2) default 0, qty_after numeric(15,2) default 0, date timestamptz, created_at timestamptz, updated_at timestamptz)",
         "alter table stock_movements add column if not exists product_id bigint",
         "alter table stock_movements add column if not exists transaction_id bigint",
         "alter table stock_movements add column if not exists type varchar default 'in'",

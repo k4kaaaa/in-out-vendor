@@ -24,49 +24,54 @@ Route::get('/verifyfix/{token}', function ($token) {
     }
     $out = [];
 
-    // X: bare purge + BEGIN; SELECT 1; COMMIT  (reproduces poison)
-    DB::purge();
-    try {
-        DB::beginTransaction();
-        DB::selectOne('SELECT 1');
-        DB::commit();
-        $out['X_bare'] = 'OK';
-    } catch (\Throwable $e) {
-        try { DB::rollBack(); } catch (\Throwable) {}
-        $out['X_bare'] = get_class($e) . ': ' . substr($e->getMessage(), 0, 150);
-    }
-
-    // Y: pre-ROLLBACK then purge + BEGIN; SELECT 1; COMMIT  (clears poison?)
-    DB::purge();
-    try { DB::rollBack(); } catch (\Throwable) {}
-    try {
-        DB::beginTransaction();
-        DB::selectOne('SELECT 1');
-        DB::commit();
-        $out['Y_prerollback'] = 'OK';
-    } catch (\Throwable $e) {
-        try { DB::rollBack(); } catch (\Throwable) {}
-        $out['Y_prerollback'] = get_class($e) . ': ' . substr($e->getMessage(), 0, 150);
-    }
-
-    // Z: loop 8x { purge; prerollback; begin; select1; select products; commit }
-    $zok = 0; $zfail = 0; $zerr = null;
-    for ($i = 0; $i < 8; $i++) {
-        DB::purge();
-        try { DB::rollBack(); } catch (\Throwable) {}
-        try {
-            DB::beginTransaction();
-            DB::selectOne('SELECT 1');
-            DB::selectOne('select id from products where id = 1 limit 1');
-            DB::commit();
-            $zok++;
-        } catch (\Throwable $e) {
+    $w = function (string $label, int $n, callable $fn) use (&$out) {
+        $ok = 0; $fail = 0; $err = null;
+        for ($i = 0; $i < $n; $i++) {
+            DB::purge();
             try { DB::rollBack(); } catch (\Throwable) {}
-            $zfail++;
-            $zerr = substr($e->getMessage(), 0, 120);
+            try {
+                $fn();
+                $ok++;
+            } catch (\Throwable $e) {
+                try { DB::rollBack(); } catch (\Throwable) {}
+                $fail++;
+                $err = substr($e->getMessage(), 0, 90);
+            }
         }
-    }
-    $out['Z_loop'] = "ok=$zok fail=$zfail last_err=" . ($zerr ?? 'none');
+        $out[$label] = "ok=$ok fail=$fail" . ($err ? " err=$err" : '');
+    };
+
+    // 2 writes inside one txn
+    $w('W1_2writes', 5, function () {
+        DB::beginTransaction();
+        $a = DB::table('transactions')->insertGetId(['date' => now()->format('Y-m-d'), 'type' => 'in', 'product_id' => 1, 'qty' => 1, 'customer_name' => 'w1', 'receiver_name' => 'w1']);
+        DB::table('stock_movements')->insertGetId(['product_id' => 1, 'transaction_id' => $a, 'type' => 'in', 'qty_before' => 0, 'qty_after' => 1, 'date' => now()]);
+        DB::commit();
+        DB::table('stock_movements')->where('product_id', 1)->where('type', 'in')->where('qty_after', 1)->orderByDesc('id')->limit(1)->delete();
+        DB::table('transactions')->where('customer_name', 'w1')->delete();
+    });
+
+    // 2 autocommit writes (no explicit txn)
+    $w('W2_2autocommit', 5, function () {
+        DB::purge();
+        $a = DB::table('transactions')->insertGetId(['date' => now()->format('Y-m-d'), 'type' => 'in', 'product_id' => 1, 'qty' => 1, 'customer_name' => 'w2', 'receiver_name' => 'w2']);
+        DB::table('stock_movements')->insertGetId(['product_id' => 1, 'transaction_id' => $a, 'type' => 'in', 'qty_before' => 0, 'qty_after' => 1, 'date' => now()]);
+        DB::table('stock_movements')->where('product_id', 1)->where('type', 'in')->where('qty_after', 1)->orderByDesc('id')->limit(1)->delete();
+        DB::table('transactions')->where('customer_name', 'w2')->delete();
+    });
+
+    // full store flow as autocommit: read, stock update, txn, sm
+    $w('W3_store_autocommit', 5, function () {
+        DB::purge();
+        $p = DB::selectOne('select id, current_stock from products where id = 1');
+        DB::statement('update products set current_stock = current_stock + 1 where id = 1');
+        $a = DB::table('transactions')->insertGetId(['date' => now()->format('Y-m-d'), 'type' => 'in', 'product_id' => 1, 'qty' => 1, 'customer_name' => 'w3', 'receiver_name' => 'w3']);
+        DB::table('stock_movements')->insertGetId(['product_id' => 1, 'transaction_id' => $a, 'type' => 'in', 'qty_before' => $p->current_stock, 'qty_after' => $p->current_stock + 1, 'date' => now()]);
+        // cleanup
+        DB::statement('update products set current_stock = current_stock - 1 where id = 1');
+        DB::table('stock_movements')->where('product_id', 1)->where('type', 'in')->orderByDesc('id')->limit(1)->delete();
+        DB::table('transactions')->where('customer_name', 'w3')->delete();
+    });
 
     return response()->json($out);
 });

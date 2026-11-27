@@ -8,10 +8,25 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::all();
-        return view('products.index', compact('products'));
+        $query = Product::query();
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+        if ($category = $request->input('category')) {
+            $query->where('category', $category);
+        }
+        if ($status = $request->input('status')) {
+            $query->whereColumn('current_stock', $status === 'low' ? '<' : '>=', 'min_stock');
+        }
+
+        $products = $query->latest()->get();
+        $categories = Product::query()->select('category')->whereNotNull('category')->distinct()->orderBy('category')->pluck('category')->values();
+
+        return view('products.index', compact('products', 'categories'));
     }
 
     public function show(Product $product)

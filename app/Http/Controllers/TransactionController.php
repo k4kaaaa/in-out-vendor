@@ -11,11 +11,28 @@ use Illuminate\Validation\ValidationException;
 
 class TransactionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $products = Product::all();
-        $transactions = Transaction::with('product', 'vendor')->latest()->get();
-        return view('transactions.index', compact('products', 'transactions'));
+        $vendors = \App\Models\Vendor::all();
+        $query = Transaction::with('product', 'vendor');
+
+        $type = $request->input('type', 'in');
+        if ($type !== 'all' && $type) {
+            $query->where('type', $type);
+        }
+        if ($search = $request->input('search')) {
+            $query->where(function($q) use ($search) {
+                $q->whereHas('product', fn($p) => $p->where('name', 'like', "%{$search%}%")->orWhere('sku', 'like', "%{$search}%"))
+                  ->orWhere('customer_name', 'like', "%{$search}%");
+            });
+        }
+        if ($vendorId = $request->input('vendor_id')) {
+            $query->where('vendor_id', $vendorId);
+        }
+
+        $transactions = $query->latest()->get();
+        return view('transactions.index', compact('products', 'vendors', 'transactions'));
     }
 
     public function create()

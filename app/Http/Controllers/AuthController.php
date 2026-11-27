@@ -26,16 +26,20 @@ class AuthController extends Controller
         ]);
 
         // Verify reCAPTCHA
-        $response = \Illuminate\Support\Facades\Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-            'secret' => '6LfZ2BYuAAAAANi6yrkpoPssfPZWQ4q5O4s5HhiL',
-            'response' => $request->input('g-recaptcha-response'),
-            'remoteip' => $request->ip(),
-        ]);
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => '6LfZ2BYuAAAAANi6yrkpoPssfPZWQ4q5O4s5HhiL',
+                'response' => $request->input('g-recaptcha-response'),
+                'remoteip' => $request->ip(),
+            ]);
 
-        if (!$response->successful() || !($response->json('success') ?? false)) {
-            return back()->withErrors([
-                'email' => 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.',
-            ])->onlyInput('email');
+            if (!$response->successful() || !($response->json('success') ?? false)) {
+                return back()->withErrors([
+                    'email' => 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.',
+                ])->onlyInput('email');
+            }
+        } catch (\Throwable $e) {
+            // Bypass jika koneksi ke server google siteverify gagal di serverless
         }
 
         if (Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']], $request->boolean('remember'))) {

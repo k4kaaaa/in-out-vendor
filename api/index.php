@@ -1,10 +1,10 @@
 <?php
 
 // Pastikan PATH_INFO berisi path lengkap (termasuk /api) agar Laravel routing benar
-// Pastikan PATH_INFO berisi path lengkap (termasuk /api) agar Laravel routing benar
+// Paksa SCRIPT_NAME ke /index.php agar Laravel tidak menganggap /api sebagai base path
+$_SERVER['SCRIPT_NAME'] = '/index.php';
 if (isset($_SERVER['REQUEST_URI'])) {
-    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $_SERVER['PATH_INFO'] = $path;
+    $_SERVER['PATH_INFO'] = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 }
 
 // Vercel serverless hanya punya izin tulis di /tmp
